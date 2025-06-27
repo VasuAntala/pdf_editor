@@ -1,8 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    appDir: true,
-  },
   images: {
     domains: ['localhost', 'your-domain.com'],
     formats: ['image/webp', 'image/avif'],
@@ -22,9 +19,6 @@ const nextConfig = {
     config.externals = [...(config.externals || []), 'canvas'];
 
     return config;
-  },
-  env: {
-    CUSTOM_KEY: process.env.CUSTOM_KEY,
   },
   async headers() {
     return [

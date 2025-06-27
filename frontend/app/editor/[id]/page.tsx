@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import toast from 'react-hot-toast';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { useAuth } from '@/components/providers/AuthProvider';
 
 interface PDFData {
   id: string;
@@ -19,13 +21,20 @@ export default function EditorPage() {
   const [pdf, setPdf] = useState<PDFData | null>(null);
   const [loading, setLoading] = useState(true);
   const [pdfUrl, setPdfUrl] = useState<string>('');
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchPDF = async () => {
       try {
-        const response = await fetch(`http://localhost:5000/api/pdf/${params.id}`, {
+        const pdfId = params?.id as string;
+        if (!pdfId) {
+          throw new Error('PDF ID is required');
+        }
+
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://localhost:5000/api/pdf/${pdfId}`, {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+            'Authorization': `Bearer ${token || ''}`
           }
         });
 
@@ -35,30 +44,29 @@ export default function EditorPage() {
 
         const data = await response.json();
         setPdf(data.pdf);
-        setPdfUrl(`http://localhost:5000/api/pdf/${params.id}/view`);
+        setPdfUrl(`http://localhost:5000/api/pdf/${pdfId}/view`);
       } catch (error) {
-        console.error('Error fetching PDF:', error);
-        toast.error('Failed to load PDF');
+        toast.error(error instanceof Error ? error.message : 'Failed to load PDF');
       } finally {
         setLoading(false);
       }
     };
 
-    if (params.id) {
-      fetchPDF();
-    }
-  }, [params.id]);
+    fetchPDF();
+  }, [params?.id]);
 
   const handleDownload = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/pdf/${params.id}/download`, {
+      const pdfId = params?.id as string;
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/pdf/${pdfId}/download`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          'Authorization': `Bearer ${token || ''}`
         }
       });
 
       if (!response.ok) {
-        throw new Error('Download failed');
+        throw new Error('Failed to download PDF');
       }
 
       const blob = await response.blob();
@@ -73,95 +81,75 @@ export default function EditorPage() {
       
       toast.success('PDF downloaded successfully!');
     } catch (error) {
-      console.error('Download error:', error);
       toast.error('Failed to download PDF');
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading PDF...</p>
+      <ProtectedRoute>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
         </div>
-      </div>
+      </ProtectedRoute>
     );
   }
 
   if (!pdf) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">PDF Not Found</h1>
-          <p className="text-gray-600">The PDF you're looking for doesn't exist or you don't have permission to view it.</p>
+      <ProtectedRoute>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">PDF Not Found</h1>
+            <p className="text-gray-600">The PDF you're looking for doesn't exist or you don't have permission to access it.</p>
+          </div>
         </div>
-      </div>
+      </ProtectedRoute>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900">{pdf.originalName}</h1>
-              <p className="text-sm text-gray-500">
-                {pdf.pageCount} pages • {(pdf.fileSize / 1024 / 1024).toFixed(2)} MB
-              </p>
-            </div>
-            
-            <div className="flex gap-3">
-              <button
-                onClick={handleDownload}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
-              >
-                Download
-              </button>
-              <button className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors">
-                Share
-              </button>
+    <ProtectedRoute>
+      <div className="min-h-screen bg-gray-50">
+        <div className="bg-white shadow-sm border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <div className="flex items-center space-x-4">
+                <h1 className="text-lg font-medium text-gray-900">
+                  {pdf.originalName}
+                </h1>
+                <span className="text-sm text-gray-500">
+                  {pdf.pageCount} pages • {(pdf.fileSize / 1024 / 1024).toFixed(2)} MB
+                </span>
+              </div>
+              
+              <div className="flex items-center space-x-4">
+                <span className="text-sm text-gray-600">
+                  Editing as {user?.name}
+                </span>
+                <button
+                  onClick={handleDownload}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                >
+                  Download
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* PDF Viewer */}
-      <div className="container mx-auto px-4 py-8">
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <div className="h-[calc(100vh-200px)]">
-            {pdfUrl && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-white rounded-lg shadow-sm border">
+            <div className="aspect-[3/4] w-full">
               <iframe
                 src={pdfUrl}
-                className="w-full h-full border-0"
-                title="PDF Viewer"
+                className="w-full h-full rounded-lg"
+                title={pdf.originalName}
               />
-            )}
+            </div>
           </div>
         </div>
       </div>
-
-      {/* Toolbar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-center gap-4">
-            <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors">
-              Edit Text
-            </button>
-            <button className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors">
-              Add Image
-            </button>
-            <button className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition-colors">
-              Convert
-            </button>
-            <button className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-2 rounded-lg transition-colors">
-              Save Changes
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    </ProtectedRoute>
   );
 } 

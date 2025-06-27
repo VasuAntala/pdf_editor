@@ -1,149 +1,75 @@
-import express from 'express';
-import { prisma } from '../index';
+import express, { Request, Response, NextFunction } from 'express';
 import { AppError } from '../utils/AppError';
-import { requireRole } from '../middleware/auth';
+import { logger } from '../utils/logger';
+import { AuthenticatedRequest } from '../middleware/auth';
+import { Analytics } from '../models/Analytics';
+import { PDF } from '../models/PDF';
+import { Share } from '../models/Share';
 
 const router = express.Router();
 
 // Get analytics dashboard data
-router.get('/dashboard', requireRole(['ADMIN', 'PREMIUM']), async (req, res, next) => {
+router.get('/dashboard', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    const { period = '7d' } = req.query;
-    const userId = (req.user as any)?.id;
-
-    const now = new Date();
-    let startDate: Date;
-
-    switch (period) {
-      case '1d':
-        startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        break;
-      case '7d':
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        break;
-      case '30d':
-        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        break;
-      default:
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    }
-
-    const [totalPdfs, totalShares, totalDownloads, recentActivity] = await Promise.all([
-      // Total PDFs
-      prisma.pdf.count({
-        where: {
-          userId,
-          isDeleted: false,
-          createdAt: { gte: startDate }
-        }
-      }),
-      // Total shares
-      prisma.share.count({
-        where: {
-          userId,
-          isActive: true,
-          createdAt: { gte: startDate }
-        }
-      }),
-      // Total downloads
-      prisma.analytics.count({
-        where: {
-          userId,
-          eventType: 'PDF_DOWNLOAD',
-          createdAt: { gte: startDate }
-        }
-      }),
-      // Recent activity
-      prisma.analytics.findMany({
-        where: {
-          userId,
-          createdAt: { gte: startDate }
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-        include: {
-          pdf: {
-            select: {
-              id: true,
-              originalName: true
-            }
-          }
-        }
-      })
+    const userId = req.user?.id;
+    // Get counts
+    const [pdfCount, shareCount, analyticsCount] = await Promise.all([
+      PDF.countDocuments({ userId }),
+      Share.countDocuments({ userId, isActive: true }),
+      Analytics.countDocuments({ userId })
     ]);
-
+    // Get recent analytics
+    const recentAnalytics = await Analytics.find({ userId }).sort({ timestamp: -1 }).limit(10);
+    // Get analytics by event type
+    const eventTypeStats = await Analytics.aggregate([
+      { $match: { userId } },
+      { $group: { _id: '$eventType', count: { $sum: 1 } } }
+    ]);
     res.json({
       success: true,
-      analytics: {
-        period,
-        totalPdfs,
-        totalShares,
-        totalDownloads,
-        recentActivity
-      }
+      stats: {
+        totalPdfs: pdfCount,
+        totalShares: shareCount,
+        totalAnalytics: analyticsCount
+      },
+      recentAnalytics,
+      eventTypeStats
     });
   } catch (error) {
     next(error);
   }
 });
 
-// Get PDF-specific analytics
-router.get('/pdf/:pdfId', async (req, res, next) => {
+// Get PDF analytics
+router.get('/pdf/:pdfId', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { pdfId } = req.params;
-    const userId = (req.user as any)?.id;
-
+    const userId = req.user?.id;
     // Verify PDF ownership
-    const pdf = await prisma.pdf.findFirst({
-      where: {
-        id: pdfId,
-        userId,
-        isDeleted: false
-      }
-    });
-
+    const pdf = await PDF.findOne({ _id: pdfId, userId });
     if (!pdf) {
       throw new AppError('PDF not found', 404);
     }
-
-    const [views, downloads, shares, editHistory] = await Promise.all([
-      // Views
-      prisma.analytics.count({
-        where: {
-          pdfId,
-          eventType: 'PDF_VIEW'
-        }
-      }),
-      // Downloads
-      prisma.analytics.count({
-        where: {
-          pdfId,
-          eventType: 'PDF_DOWNLOAD'
-        }
-      }),
-      // Shares
-      prisma.share.count({
-        where: {
-          pdfId,
-          isActive: true
-        }
-      }),
-      // Edit history
-      prisma.pDFEdit.findMany({
-        where: { pdfId },
-        orderBy: { createdAt: 'desc' },
-        take: 10
-      })
+    // Get analytics for this PDF
+    const analytics = await Analytics.find({ pdfId }).sort({ timestamp: -1 });
+    // Get analytics counts
+    const [viewCount, downloadCount, editCount] = await Promise.all([
+      Analytics.countDocuments({ pdfId, eventType: 'PDF_VIEW' }),
+      Analytics.countDocuments({ pdfId, eventType: 'PDF_DOWNLOAD' }),
+      Analytics.countDocuments({ pdfId, eventType: 'PDF_EDIT' })
     ]);
-
+    // Get edit history (not implemented, placeholder)
+    const edits = [];
     res.json({
       success: true,
-      analytics: {
-        views,
-        downloads,
-        shares,
-        editHistory
-      }
+      pdf,
+      analytics,
+      stats: {
+        views: viewCount,
+        downloads: downloadCount,
+        edits: editCount
+      },
+      edits
     });
   } catch (error) {
     next(error);
@@ -151,28 +77,17 @@ router.get('/pdf/:pdfId', async (req, res, next) => {
 });
 
 // Track custom event
-router.post('/track', async (req, res, next) => {
+router.post('/track', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    const { eventType, eventData, pdfId, shareId } = req.body;
-    const userId = (req.user as any)?.id;
-
-    await prisma.analytics.create({
-      data: {
-        userId,
-        pdfId,
-        shareId,
-        eventType,
-        eventData,
-        userAgent: req.get('User-Agent'),
-        ipAddress: req.ip,
-        referrer: req.get('Referrer')
-      }
+    const { eventType, eventData, pdfId } = req.body;
+    const userId = req.user?.id;
+    await Analytics.create({
+      userId,
+      pdfId,
+      eventType,
+      eventData
     });
-
-    res.json({
-      success: true,
-      message: 'Event tracked successfully'
-    });
+    res.json({ success: true });
   } catch (error) {
     next(error);
   }

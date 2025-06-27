@@ -1,70 +1,53 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import fs from 'fs';
-import { prisma } from '../index';
 import { AppError } from '../utils/AppError';
-import { optionalAuthMiddleware } from '../middleware/auth';
+import { logger } from '../utils/logger';
+import { AuthenticatedRequest } from '../middleware/auth';
+import { Share } from '../models/Share';
+import { PDF } from '../models/PDF';
+import { Analytics } from '../models/Analytics';
 
 const router = express.Router();
 
 // Create share link
-router.post('/create', async (req, res, next) => {
+router.post('/:pdfId', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    const { pdfId, expiresAt, downloadLimit } = req.body;
-    const userId = (req.user as any)?.id;
+    const { pdfId } = req.params;
+    const { expiresAt, password, allowDownload } = req.body;
+    const userId = req.user?.id;
 
-    const pdf = await prisma.pdf.findFirst({
-      where: {
-        id: pdfId,
-        userId,
-        isDeleted: false
-      }
-    });
-
+    // Verify PDF ownership
+    const pdf = await PDF.findOne({ _id: pdfId, userId });
     if (!pdf) {
       throw new AppError('PDF not found', 404);
     }
 
-    const shareToken = uuidv4();
-
-    const share = await prisma.share.create({
-      data: {
-        pdfId,
-        userId,
-        shareToken,
-        expiresAt: expiresAt ? new Date(expiresAt) : null,
-        downloadLimit: downloadLimit ? parseInt(downloadLimit) : null
-      },
-      include: {
-        pdf: {
-          select: {
-            id: true,
-            originalName: true,
-            fileSize: true,
-            pageCount: true
-          }
-        }
-      }
+    // Create share record
+    const shareId = uuidv4();
+    const share = new Share({
+      _id: shareId,
+      pdfId,
+      userId,
+      expiresAt,
+      allowDownload,
+      isActive: true
     });
+    await share.save();
 
-    await prisma.analytics.create({
-      data: {
-        userId,
-        pdfId,
-        shareId: share.id,
-        eventType: 'PDF_SHARE',
-        eventData: {
-          shareToken,
-          expiresAt,
-          downloadLimit
-        }
-      }
+    // Log analytics
+    await Analytics.create({
+      userId,
+      pdfId,
+      eventType: 'PDF_SHARE',
+      eventData: { shareId, allowDownload }
     });
 
     res.status(201).json({
       success: true,
-      share,
-      shareUrl: `${process.env.FRONTEND_URL}/share/${shareToken}`
+      share: {
+        ...share.toObject(),
+        shareUrl: `${process.env.FRONTEND_URL}/share/${shareId}`
+      }
     });
   } catch (error) {
     next(error);
@@ -72,91 +55,49 @@ router.post('/create', async (req, res, next) => {
 });
 
 // Get shared PDF
-router.get('/:token', optionalAuthMiddleware, async (req, res, next) => {
+router.get('/:shareId', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { token } = req.params;
+    const { shareId } = req.params;
+    const { password } = req.query;
 
-    const share = await prisma.share.findUnique({
-      where: { shareToken: token },
-      include: {
-        pdf: {
-          select: {
-            id: true,
-            originalName: true,
-            fileSize: true,
-            pageCount: true,
-            filePath: true,
-            thumbnailPath: true
-          }
-        },
-        user: {
-          select: {
-            id: true,
-            name: true
-          }
-        }
-      }
-    });
-
+    // Get share details
+    const share = await Share.findById(shareId);
     if (!share || !share.isActive) {
-      throw new AppError('Share link not found or inactive', 404);
+      throw new AppError('Share link not found or expired', 404);
     }
 
-    if (share.expiresAt && new Date() > share.expiresAt) {
+    // Check if expired
+    if (share.expiresAt && new Date() > new Date(share.expiresAt)) {
       throw new AppError('Share link has expired', 410);
     }
 
-    if (share.downloadLimit && share.downloadCount >= share.downloadLimit) {
-      throw new AppError('Download limit reached', 410);
+    // Check password if required (not implemented in model, but placeholder)
+    // if (share.password && share.password !== password) {
+    //   throw new AppError('Invalid password', 401);
+    // }
+
+    // Get PDF details
+    const pdf = await PDF.findById(share.pdfId);
+    if (!pdf) {
+      throw new AppError('PDF not found', 404);
     }
 
-    await prisma.analytics.create({
-      data: {
-        userId: (req.user as any)?.id,
-        pdfId: share.pdfId,
-        shareId: share.id,
-        eventType: 'PDF_VIEW',
-        userAgent: req.get('User-Agent'),
-        ipAddress: req.ip,
-        referrer: req.get('Referrer')
-      }
+    // Log view analytics
+    await Analytics.create({
+      pdfId: pdf.id,
+      eventType: 'PDF_SHARED_VIEW',
+      eventData: { shareId }
     });
 
     res.json({
       success: true,
-      share
+      pdf: {
+        id: pdf.id,
+        originalName: pdf.originalName,
+        pageCount: pdf.pageCount,
+        allowDownload: share.allowDownload
+      }
     });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Download shared PDF
-router.get('/:token/download', optionalAuthMiddleware, async (req, res, next) => {
-  try {
-    const { token } = req.params;
-    // Implementation for downloading the PDF
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Get user's shares
-router.get('/', async (req, res, next) => {
-  try {
-    const userId = (req.user as any)?.id;
-    // Implementation for getting user's shares
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Deactivate share
-router.delete('/:id', async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const userId = (req.user as any)?.id;
-    // Implementation for deactivating a share
   } catch (error) {
     next(error);
   }

@@ -1,34 +1,15 @@
-import express from 'express';
-import { prisma } from '../index';
+import express, { Request, Response, NextFunction } from 'express';
 import { AppError } from '../utils/AppError';
-import { requireRole } from '../middleware/auth';
+import { logger } from '../utils/logger';
+import { Ad } from '../models/Ad';
+import { Analytics } from '../models/Analytics';
 
 const router = express.Router();
 
-// Get ads for a specific page/context
-router.get('/serve', async (req, res, next) => {
+// Get all ads
+router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { type, page } = req.query;
-
-    const ads = await prisma.ad.findMany({
-      where: {
-        type: type as any,
-        isActive: true
-      },
-      orderBy: { impressions: 'asc' },
-      take: 3
-    });
-
-    // Increment impressions for served ads
-    await Promise.all(
-      ads.map(ad =>
-        prisma.ad.update({
-          where: { id: ad.id },
-          data: { impressions: { increment: 1 } }
-        })
-      )
-    );
-
+    const ads = await Ad.find({ isActive: true }).sort({ createdAt: -1 });
     res.json({
       success: true,
       ads
@@ -38,30 +19,28 @@ router.get('/serve', async (req, res, next) => {
   }
 });
 
-// Track ad click
-router.post('/click/:adId', async (req, res, next) => {
+// Update ad impression
+router.post('/:id/impression', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { adId } = req.params;
+    const { id } = req.params;
+    await Ad.findByIdAndUpdate(id, { $inc: { impressions: 1 } });
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
 
-    await prisma.ad.update({
-      where: { id: adId },
-      data: { clicks: { increment: 1 } }
+// Update ad click
+router.post('/:id/click', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    await Ad.findByIdAndUpdate(id, { $inc: { clicks: 1 } });
+    // Log analytics
+    await Analytics.create({
+      eventType: 'AD_CLICK',
+      eventData: { adId: id }
     });
-
-    await prisma.analytics.create({
-      data: {
-        eventType: 'AD_CLICK',
-        eventData: { adId },
-        userAgent: req.get('User-Agent'),
-        ipAddress: req.ip,
-        referrer: req.get('Referrer')
-      }
-    });
-
-    res.json({
-      success: true,
-      message: 'Click tracked successfully'
-    });
+    res.json({ success: true });
   } catch (error) {
     next(error);
   }

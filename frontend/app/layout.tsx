@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/providers/Providers';
+import { AuthProvider } from '@/components/providers/AuthProvider';
 import { Toaster } from 'react-hot-toast';
 import Navigation from '@/components/Navigation';
 
@@ -40,8 +41,10 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <Providers>
-          <Navigation />
-          {children}
+          <AuthProvider>
+            <Navigation />
+            {children}
+          </AuthProvider>
           <Toaster
             position="top-right"
             toastOptions={{

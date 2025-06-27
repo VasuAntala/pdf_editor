@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { prisma } from '../index';
 import { AppError } from '../utils/AppError';
+import { User } from '../models/User';
 
 interface JwtPayload {
   userId: string;
@@ -14,6 +14,7 @@ export interface AuthenticatedRequest extends Request {
     id: string;
     email: string;
     role: string;
+    isVerified: boolean;
   };
 }
 
@@ -32,15 +33,7 @@ export const authMiddleware = async (
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
     // Check if user still exists
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        isVerified: true
-      }
-    });
+    const user = await User.findById(decoded.userId);
 
     if (!user) {
       throw new AppError('User not found', 401);
@@ -50,7 +43,12 @@ export const authMiddleware = async (
       throw new AppError('Please verify your email first', 401);
     }
 
-    req.user = user;
+    req.user = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      isVerified: user.isVerified
+    };
     next();
   } catch (error) {
     if (error instanceof jwt.JsonWebTokenError) {
@@ -77,18 +75,15 @@ export const optionalAuthMiddleware = async (
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        isVerified: true
-      }
-    });
+    const user = await User.findById(decoded.userId);
 
     if (user && user.isVerified) {
-      req.user = user;
+      req.user = {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        isVerified: user.isVerified
+      };
     }
 
     next();
