@@ -1,0 +1,190 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  password      String?
+  avatar        String?
+  googleId      String?  @unique
+  isVerified    Boolean  @default(false)
+  role          Role     @default(USER)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  pdfs          Pdf[]
+  shares        Share[]
+  analytics     Analytics[]
+  sessions      Session[]
+
+  @@map("users")
+}
+
+model Pdf {
+  id            String   @id @default(cuid())
+  filename      String
+  originalName  String
+  fileSize      Int
+  pageCount     Int
+  filePath      String
+  thumbnailPath String?
+  userId        String
+  isPublic      Boolean  @default(false)
+  isDeleted     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shares        Share[]
+  analytics     Analytics[]
+  versions      PDFVersion[]
+  edits         PDFEdit[]
+
+  @@map("pdfs")
+}
+
+model PDFVersion {
+  id            String   @id @default(cuid())
+  pdfId         String
+  version       Int
+  filePath      String
+  changes       Json?
+  createdAt     DateTime @default(now())
+
+  // Relations
+  pdf           Pdf      @relation(fields: [pdfId], references: [id], onDelete: Cascade)
+
+  @@map("pdf_versions")
+}
+
+model PDFEdit {
+  id            String   @id @default(cuid())
+  pdfId         String
+  editType      EditType
+  editData      Json
+  pageNumber    Int?
+  createdAt     DateTime @default(now())
+
+  // Relations
+  pdf           Pdf      @relation(fields: [pdfId], references: [id], onDelete: Cascade)
+
+  @@map("pdf_edits")
+}
+
+model Share {
+  id            String   @id @default(cuid())
+  pdfId         String
+  userId        String
+  shareToken    String   @unique
+  isActive      Boolean  @default(true)
+  expiresAt     DateTime?
+  downloadLimit Int?
+  downloadCount Int       @default(0)
+  createdAt     DateTime @default(now())
+
+  // Relations
+  pdf           Pdf      @relation(fields: [pdfId], references: [id], onDelete: Cascade)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  analytics     Analytics[]
+
+  @@map("shares")
+}
+
+model Analytics {
+  id            String   @id @default(cuid())
+  userId        String?
+  pdfId         String?
+  shareId       String?
+  eventType     EventType
+  eventData     Json?
+  userAgent     String?
+  ipAddress     String?
+  referrer      String?
+  createdAt     DateTime @default(now())
+
+  // Relations
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  pdf           Pdf?     @relation(fields: [pdfId], references: [id], onDelete: SetNull)
+  share         Share?   @relation(fields: [shareId], references: [id], onDelete: SetNull)
+
+  @@map("analytics")
+}
+
+model Session {
+  id            String   @id @default(cuid())
+  userId        String
+  token         String   @unique
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  // Relations
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Ad {
+  id            String   @id @default(cuid())
+  name          String
+  type          AdType
+  content       Json
+  isActive      Boolean  @default(true)
+  impressions   Int      @default(0)
+  clicks        Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("ads")
+}
+
+enum Role {
+  USER
+  ADMIN
+  PREMIUM
+}
+
+enum EditType {
+  TEXT_EDIT
+  IMAGE_ADD
+  IMAGE_REMOVE
+  IMAGE_EDIT
+  PAGE_ADD
+  PAGE_REMOVE
+  PAGE_REORDER
+  MERGE
+  SPLIT
+  CONVERT
+}
+
+enum EventType {
+  PDF_UPLOAD
+  PDF_EDIT
+  PDF_DOWNLOAD
+  PDF_SHARE
+  PDF_VIEW
+  PDF_CONVERT
+  USER_LOGIN
+  USER_REGISTER
+  USER_LOGOUT
+  AD_IMPRESSION
+  AD_CLICK
+}
+
+enum AdType {
+  BANNER
+  SIDEBAR
+  POPUP
+  INLINE
+} 

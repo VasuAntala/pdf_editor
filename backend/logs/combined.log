@@ -1,0 +1,51 @@
+{"level":"info","message":"Server running on port 5000","timestamp":"2025-06-27T13:01:34.224Z"}
+{"level":"info","message":"Environment: development","timestamp":"2025-06-27T13:01:34.228Z"}
+{"level":"info","message":"SIGINT received, shutting down gracefully","timestamp":"2025-06-27T13:03:19.760Z"}
+{"level":"info","message":"Server running on port 5000","timestamp":"2025-06-27T13:03:27.149Z"}
+{"level":"info","message":"Environment: development","timestamp":"2025-06-27T13:03:27.153Z"}
+{"level":"info","message":"Server running on port 5000","timestamp":"2025-06-27T13:04:32.988Z"}
+{"level":"info","message":"Environment: development","timestamp":"2025-06-27T13:04:32.992Z"}
+{"level":"info","message":"SIGINT received, shutting down gracefully","timestamp":"2025-06-27T13:05:03.238Z"}
+{"level":"info","message":"Server running on port 5000","timestamp":"2025-06-27T13:06:44.884Z"}
+{"level":"info","message":"Environment: development","timestamp":"2025-06-27T13:06:44.888Z"}
+{"level":"info","message":"Server running on port 5000","timestamp":"2025-06-27T13:10:52.585Z"}
+{"level":"info","message":"Environment: development","timestamp":"2025-06-27T13:10:52.589Z"}
+{"level":"info","message":"SIGINT received, shutting down gracefully","timestamp":"2025-06-27T13:11:46.221Z"}
+{"level":"info","message":"Server running on port 5000","timestamp":"2025-06-27T13:12:40.097Z"}
+{"level":"info","message":"Environment: development","timestamp":"2025-06-27T13:12:40.101Z"}
+{"level":"info","message":"Server running on port 5000","timestamp":"2025-06-27T13:14:00.831Z"}
+{"level":"info","message":"Environment: development","timestamp":"2025-06-27T13:14:00.834Z"}
+{"level":"info","message":"SIGINT received, shutting down gracefully","timestamp":"2025-06-27T13:14:03.789Z"}
+{"level":"info","message":"Server running on port 5000","timestamp":"2025-06-27T13:15:11.451Z"}
+{"level":"info","message":"Environment: development","timestamp":"2025-06-27T13:15:11.462Z"}
+{"level":"info","message":"::1 - - [27/Jun/2025:13:15:25 +0000] \"GET /health HTTP/1.1\" 200 54 \"-\" \"curl/8.7.1\"","timestamp":"2025-06-27T13:15:25.130Z"}
+{"level":"info","message":"Server running on port 5000","timestamp":"2025-06-27T13:37:32.857Z"}
+{"level":"info","message":"Environment: development","timestamp":"2025-06-27T13:37:32.861Z"}
+{"level":"info","message":"Server running on port 5000","timestamp":"2025-06-27T13:37:38.606Z"}
+{"level":"info","message":"Environment: development","timestamp":"2025-06-27T13:37:38.614Z"}
+{"level":"info","message":"Server running on port 5000","timestamp":"2025-06-27T13:37:44.047Z"}
+{"level":"info","message":"Environment: development","timestamp":"2025-06-27T13:37:44.051Z"}
+{"level":"info","message":"Server running on port 5000","timestamp":"2025-06-27T13:39:13.836Z"}
+{"level":"info","message":"Environment: development","timestamp":"2025-06-27T13:39:13.840Z"}
+{"level":"info","message":"SIGTERM received, shutting down gracefully","timestamp":"2025-06-27T13:40:00.803Z"}
+{"level":"info","message":"Server running on port 5000","timestamp":"2025-06-27T13:40:18.575Z"}
+{"level":"info","message":"Environment: development","timestamp":"2025-06-27T13:40:18.579Z"}
+{"level":"info","message":"Server running on port 5000","timestamp":"2025-06-27T13:43:14.119Z"}
+{"level":"info","message":"Environment: development","timestamp":"2025-06-27T13:43:14.125Z"}
+{"level":"info","message":"Server running on port 5000","timestamp":"2025-06-27T13:46:10.723Z"}
+{"level":"info","message":"Environment: development","timestamp":"2025-06-27T13:46:10.727Z"}
+{"level":"info","message":"Server running on port 5000","timestamp":"2025-06-27T13:46:35.368Z"}
+{"level":"info","message":"Environment: development","timestamp":"2025-06-27T13:46:35.372Z"}
+{"level":"info","message":"Server running on port 5000","timestamp":"2025-06-27T13:47:42.189Z"}
+{"level":"info","message":"Environment: development","timestamp":"2025-06-27T13:47:42.193Z"}
+{"level":"info","message":"SIGINT received, shutting down gracefully","timestamp":"2025-06-27T13:49:00.304Z"}
+{"level":"info","message":"Server running on port 5000","timestamp":"2025-06-27T13:49:05.233Z"}
+{"level":"info","message":"Environment: development","timestamp":"2025-06-27T13:49:05.237Z"}
+{"level":"info","message":"Server running on port 5000","timestamp":"2025-06-27T13:51:10.700Z"}
+{"level":"info","message":"Environment: development","timestamp":"2025-06-27T13:51:10.705Z"}
+{"level":"info","message":"SIGINT received, shutting down gracefully","timestamp":"2025-06-27T13:51:53.186Z"}
+{"level":"info","message":"Server running on port 5000","timestamp":"2025-06-27T13:52:21.844Z"}
+{"level":"info","message":"Environment: development","timestamp":"2025-06-27T13:52:21.848Z"}
+{"level":"info","message":"SIGTERM received, shutting down gracefully","timestamp":"2025-06-27T13:53:14.809Z"}
+{"level":"info","message":"Server running on port 5000","timestamp":"2025-06-27T13:53:28.592Z"}
+{"level":"info","message":"Environment: development","timestamp":"2025-06-27T13:53:28.597Z"}
